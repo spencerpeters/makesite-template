@@ -1,7 +1,13 @@
 site:
 	./makesite.py
 
-serve: site
+sitelocal:
+	./makesite.py local
+
+deploy: site
+	rsync -ave 'ssh' _site/* sp2473@linux.coecis.cornell.edu:/cs/people/sp2473
+
+serve: sitelocal
 	if python3 -c 'import http.server' 2> /dev/null; then \
 	    echo Running Python3 http.server ...; \
 	    cd _site && python3 -m http.server; \

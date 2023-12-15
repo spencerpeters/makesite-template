@@ -39,7 +39,8 @@ nav section, header section, main, footer section {
 
 /* Navigation panel */
 nav {
-    background: #333333;
+    /* background: #333333; */
+    background: #B31B1B;
     border-bottom: thin solid #111111;
     line-height: 3em;
 }
@@ -49,7 +50,8 @@ nav a {
 }
 
 nav a:link, nav a:visited {
-    color: #cccccc;
+    /* color: #cccccc; */
+    color: #FFFFFF;
 }
 
 nav a:hover, nav a:active {
@@ -142,4 +144,20 @@ div .more {
 
 .rss:hover, .rss:active {
     background: #ff8822;
+}
+
+
+img.headshot {
+    max-height: 2in;
+    width: auto;
+}
+
+a.preview:link, a.preview:visited {
+    color: #0000e0;
+    text-decoration: none
+}
+
+a.preview:hover, a.preview:active {
+    color: #0000ff;
+    text-decoration: underline
 }

@@ -22,10 +22,10 @@
 # CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
 """Make static website/blog with Python."""
 
+# spencer: to deploy, connect to Cornell network, and run
+# rsync -ave 'ssh' _site/* sp2473@linux.coecis.cornell.edu:/cs/people/sp2473
 
 import os
 import shutil
@@ -35,6 +35,7 @@ import sys
 import json
 import datetime
 
+serve_locally = False
 
 def fread(filename):
     """Read file and close the file."""
@@ -57,9 +58,9 @@ def log(msg, *args):
     sys.stderr.write(msg.format(*args) + '\n')
 
 
-def truncate(text, words=25):
+def truncate(text, words_to_keep=25):
     """Remove tags and truncate text to the specified number of words."""
-    return ' '.join(re.sub('(?s)<.*?>', ' ', text).split()[:words])
+    return ' '.join(re.sub('(?s)<.*?>', ' ', text).split()[:words_to_keep])
 
 
 def read_headers(text):
@@ -118,9 +119,10 @@ def read_content(filename):
 
 def render(template, **params):
     """Replace placeholders in template with values from params."""
-    return re.sub(r'{{\s*([^}\s]+)\s*}}',
-                  lambda match: str(params.get(match.group(1), match.group(0))),
-                  template)
+    return re.sub(
+        r'{{\s*([^}\s]+)\s*}}',
+        lambda match: str(params.get(match.group(1), match.group(0))),
+        template)
 
 
 def make_pages(src, dst, layout, **params):
@@ -153,18 +155,24 @@ def make_list(posts, dst, list_layout, item_layout, **params):
     """Generate list page for a blog."""
     items = []
     for post in posts:
-        item_params = dict(params, **post)
-        item_params['summary'] = truncate(post['content'])
-        item = render(item_layout, **item_params)
-        items.append(item)
+        # spencer: one-off to make this more private
+        # print(post)
+        if post["title"] != "Spencer's 27th Birthday":
+            item_params = dict(params, **post)
+            item_params['summary'] = truncate(post['content'])
+            item = render(item_layout, **item_params)
+            items.append(item)
 
+    # pre_content = params['pre_content'] if 'pre_content' in params else ''
+    # post_content = params['post_content'] if 'post_content' in params else ''
+
+    # params['content'] = pre_content + ''.join(items) + post_content
     params['content'] = ''.join(items)
     dst_path = render(dst, **params)
     output = render(list_layout, **params)
 
     log('Rendering list => {} ...', dst_path)
     fwrite(dst_path, output)
-
 
 def main():
     # Create a new _site directory from scratch.
@@ -173,11 +181,27 @@ def main():
     shutil.copytree('static', '_site')
 
     # Default parameters.
+    if serve_locally:
+        base_path = ''
+        site_url = 'http://localhost:8000'
+    else:
+        base_path = '/~speters'
+        site_url = 'https://www.cs.cornell.edu'
     params = {
-        'base_path': '',
-        'subtitle': 'Lorem Ipsum',
-        'author': 'Admin',
-        'site_url': 'http://localhost:8000',
+        # 'base_path': '',
+        # 'site_url': 'http://localhost:8000',
+        # 'base_path': '/~speters',
+        # 'site_url': 'https://www.cs.cornell.edu',
+        'base_path': base_path,
+        'site_url': site_url,
+        'subtitle': 'Spencer Peters',
+        'author': 'Spencer Peters',
+        # Alright, this is a job for the weekend.
+        # Note: rsync copies directory permissions, which on the new Mac are less permissive
+        # so some files are not used by the department server. Changing all permissions to 777
+        # fixed the problem, but maybe not for the new files?
+        # A third problem is that markdown files aren't being rendered correctly into the blog and journal.
+        # Links aren't rendering. Not sure why. Gotta check the rendering pipeline.
         'current_year': datetime.datetime.now().year
     }
 
@@ -190,6 +214,7 @@ def main():
     post_layout = fread('layout/post.html')
     list_layout = fread('layout/list.html')
     item_layout = fread('layout/item.html')
+    preview_item_layout = fread('layout/preview_item.html')
     feed_xml = fread('layout/feed.xml')
     item_xml = fread('layout/item.xml')
 
@@ -197,36 +222,77 @@ def main():
     post_layout = render(page_layout, content=post_layout)
     list_layout = render(page_layout, content=list_layout)
 
-    # Create site pages.
-    make_pages('content/_index.html', '_site/index.html',
-               page_layout, **params)
-    make_pages('content/[!_]*.html', '_site/{{ slug }}/index.html',
-               page_layout, **params)
-
-    # Create blogs.
+    # Create blog and journal.
     blog_posts = make_pages('content/blog/*.md',
                             '_site/blog/{{ slug }}/index.html',
-                            post_layout, blog='blog', **params)
-    news_posts = make_pages('content/news/*.html',
-                            '_site/news/{{ slug }}/index.html',
-                            post_layout, blog='news', **params)
+                            post_layout,
+                            blog='blog',
+                            **params)
+    journal_posts = make_pages('content/journal/*.md',
+                               '_site/journal/{{ slug }}/index.html',
+                               post_layout,
+                               blog='news',
+                               **params)
+
+    # Make most recent post preview for home page
+    most_recent_blog_post = blog_posts[0] if blog_posts[0]["title"] != "Spencer's 27th Birthday" else blog_posts[1]
+    post_params = dict(params, **most_recent_blog_post)
+    post_params['summary'] = truncate(most_recent_blog_post['content'])
+    item_for_post = render(preview_item_layout, **post_params)
+
+    # Create site pages.
+    make_pages('content/_index.html',
+                      '_site/index.html',
+                      page_layout,
+                      most_recent_post=item_for_post,
+                      render="yes",
+                      **params)
+    make_pages('content/[!_]*.html', '_site/{{ slug }}/index.html',
+               page_layout, render="yes", **params)
+
+    # Added for bookshelf.md
+    make_pages('content/[!_]*.md', '_site/{{ slug }}/index.html',
+               page_layout, render="yes", **params)
 
     # Create blog list pages.
-    make_list(blog_posts, '_site/blog/index.html',
-              list_layout, item_layout, blog='blog', title='Blog', **params)
-    make_list(news_posts, '_site/news/index.html',
-              list_layout, item_layout, blog='news', title='News', **params)
+    make_list(blog_posts,
+              '_site/blog/index.html',
+              list_layout,
+              item_layout,
+              blog='blog',
+              title='Blog',
+              **params)
+    make_list(journal_posts,
+              '_site/journal/index.html',
+              list_layout,
+              item_layout,
+              blog='journal',
+              title='Journal',
+              **params)
 
     # Create RSS feeds.
-    make_list(blog_posts, '_site/blog/rss.xml',
-              feed_xml, item_xml, blog='blog', title='Blog', **params)
-    make_list(news_posts, '_site/news/rss.xml',
-              feed_xml, item_xml, blog='news', title='News', **params)
+    make_list(blog_posts,
+              '_site/blog/rss.xml',
+              feed_xml,
+              item_xml,
+              blog='blog',
+              title='Blog',
+              **params)
+    make_list(journal_posts,
+              '_site/news/rss.xml',
+              feed_xml,
+              item_xml,
+              blog='journal',
+              title='Journal',
+              **params)
 
 
 # Test parameter to be set temporarily by unit tests.
 _test = None
 
-
 if __name__ == '__main__':
+    print(f"argv = {sys.argv}")
+    if len(sys.argv) > 1 and sys.argv[1] == "local":
+        print("local!")
+        serve_locally = True
     main()
