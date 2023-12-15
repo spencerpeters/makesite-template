@@ -24,9 +24,6 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Make static website/blog with Python."""
 
-# spencer: to deploy, connect to Cornell network, and run
-# rsync -ave 'ssh' _site/* sp2473@linux.coecis.cornell.edu:/cs/people/sp2473
-
 import os
 import shutil
 import re
@@ -155,18 +152,11 @@ def make_list(posts, dst, list_layout, item_layout, **params):
     """Generate list page for a blog."""
     items = []
     for post in posts:
-        # spencer: one-off to make this more private
-        # print(post)
-        if post["title"] != "Spencer's 27th Birthday":
-            item_params = dict(params, **post)
-            item_params['summary'] = truncate(post['content'])
-            item = render(item_layout, **item_params)
-            items.append(item)
+        item_params = dict(params, **post)
+        item_params['summary'] = truncate(post['content'])
+        item = render(item_layout, **item_params)
+        items.append(item)
 
-    # pre_content = params['pre_content'] if 'pre_content' in params else ''
-    # post_content = params['post_content'] if 'post_content' in params else ''
-
-    # params['content'] = pre_content + ''.join(items) + post_content
     params['content'] = ''.join(items)
     dst_path = render(dst, **params)
     output = render(list_layout, **params)
@@ -185,23 +175,13 @@ def main():
         base_path = ''
         site_url = 'http://localhost:8000'
     else:
-        base_path = '/~speters'
-        site_url = 'https://www.cs.cornell.edu'
+        base_path = '/~speters'  # TODO change this
+        site_url = 'https://www.cs.cornell.edu'  # and this
     params = {
-        # 'base_path': '',
-        # 'site_url': 'http://localhost:8000',
-        # 'base_path': '/~speters',
-        # 'site_url': 'https://www.cs.cornell.edu',
         'base_path': base_path,
         'site_url': site_url,
-        'subtitle': 'Spencer Peters',
-        'author': 'Spencer Peters',
-        # Alright, this is a job for the weekend.
-        # Note: rsync copies directory permissions, which on the new Mac are less permissive
-        # so some files are not used by the department server. Changing all permissions to 777
-        # fixed the problem, but maybe not for the new files?
-        # A third problem is that markdown files aren't being rendered correctly into the blog and journal.
-        # Links aren't rendering. Not sure why. Gotta check the rendering pipeline.
+        'subtitle': 'Your Name',  # TODO change this
+        'author': 'Your Name',    # And this
         'current_year': datetime.datetime.now().year
     }
 
@@ -215,8 +195,8 @@ def main():
     list_layout = fread('layout/list.html')
     item_layout = fread('layout/item.html')
     preview_item_layout = fread('layout/preview_item.html')
-    feed_xml = fread('layout/feed.xml')
-    item_xml = fread('layout/item.xml')
+    # feed_xml = fread('layout/feed.xml')
+    # item_xml = fread('layout/item.xml')
 
     # Combine layouts to form final layouts.
     post_layout = render(page_layout, content=post_layout)
@@ -235,7 +215,7 @@ def main():
                                **params)
 
     # Make most recent post preview for home page
-    most_recent_blog_post = blog_posts[0] if blog_posts[0]["title"] != "Spencer's 27th Birthday" else blog_posts[1]
+    most_recent_blog_post = blog_posts[0]
     post_params = dict(params, **most_recent_blog_post)
     post_params['summary'] = truncate(most_recent_blog_post['content'])
     item_for_post = render(preview_item_layout, **post_params)
@@ -271,28 +251,26 @@ def main():
               **params)
 
     # Create RSS feeds.
-    make_list(blog_posts,
-              '_site/blog/rss.xml',
-              feed_xml,
-              item_xml,
-              blog='blog',
-              title='Blog',
-              **params)
-    make_list(journal_posts,
-              '_site/news/rss.xml',
-              feed_xml,
-              item_xml,
-              blog='journal',
-              title='Journal',
-              **params)
+    # make_list(blog_posts,
+    #           '_site/blog/rss.xml',
+    #           feed_xml,
+    #           item_xml,
+    #           blog='blog',
+    #           title='Blog',
+    #           **params)
+    # make_list(journal_posts,
+    #           '_site/news/rss.xml',
+    #           feed_xml,
+    #           item_xml,
+    #           blog='journal',
+    #           title='Journal',
+    #           **params)
 
 
 # Test parameter to be set temporarily by unit tests.
 _test = None
 
 if __name__ == '__main__':
-    print(f"argv = {sys.argv}")
     if len(sys.argv) > 1 and sys.argv[1] == "local":
-        print("local!")
         serve_locally = True
     main()
